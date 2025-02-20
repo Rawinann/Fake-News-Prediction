@@ -30,4 +30,5 @@ accuracy = accuracy_score(y_test, y_pred)
 print(f"Accuracy: {accuracy:.2f}")
 
 joblib.dump(model, 'model.pkl')  # บันทึกโมเดลลงไฟล์
+joblib.dump(vectorizer, 'vectorizer.pkl')  # บันทึก TF-IDF Vectorizer
 print("Model saved successfully!")
