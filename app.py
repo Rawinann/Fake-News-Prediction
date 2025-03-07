@@ -4,61 +4,103 @@ import re
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import nltk
-from sklearn.feature_extraction.text import TfidfVectorizer
 from textblob import TextBlob
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
+from googletrans import Translator
 
-# Download stopwords
+# Download necessary NLTK data
 nltk.download('stopwords')
+nltk.download('punkt')
 
-# Load the model and vectorizer
-model = joblib.load('model.pkl')  # Logistic Regression model
-vectorizer = joblib.load('vectorizer.pkl')  # TfidfVectorizer
+# Load model and vectorizer
+model = joblib.load('model.pkl')
+vectorizer = joblib.load('vectorizer.pkl')
 
-# Define stemming function
+# Initialize translator
+translator = Translator()
+
+# Initialize PorterStemmer for English
 port_stem = PorterStemmer()
 
-def stemming(content):
-    """Preprocess the input content by cleaning and stemming."""
-    stemmed_content = re.sub('[^a-zA-Z]', ' ', content)
-    stemmed_content = stemmed_content.lower()
-    stemmed_content = stemmed_content.split()
-    stemmed_content = [port_stem.stem(word) for word in stemmed_content if not word in stopwords.words('english')]
-    stemmed_content = ' '.join(stemmed_content)
-    return stemmed_content
+# Thai stopwords (custom list)
+THAI_STOPWORDS = [
+    "ที่", "และ", "คือ", "ไม่", "ใน", "ให้", "ได้", "โดย", "จะ", "มี", "ของ", "ได้", "จาก", "เป็น", "ว่า", "ซึ่ง"
+]
 
-def extract_keywords(vectorizer, transformed_text):
-    """Extract top keywords from the transformed text using TF-IDF weights."""
-    feature_array = vectorizer.get_feature_names_out()
-    tfidf_sorting = transformed_text.toarray()[0].argsort()[::-1]
-    top_keywords = [feature_array[i] for i in tfidf_sorting[:5]]
-    return top_keywords
+# Function: Tokenize Thai text using regex
+def custom_tokenize_thai(text):
+    """Tokenize Thai text using regular expressions."""
+    tokens = re.findall(r'\w+', text)
+    return tokens
 
+# Function: Remove Thai stopwords
+def remove_thai_stopwords(tokens):
+    """Remove Thai stopwords from the tokenized text."""
+    return [token for token in tokens if token not in THAI_STOPWORDS]
+
+# Function: Preprocess Thai text
+def preprocess_thai(content):
+    """Preprocess Thai content by removing Thai stopwords."""
+    tokens = custom_tokenize_thai(content)
+    cleaned_tokens = remove_thai_stopwords(tokens)
+    return ' '.join(cleaned_tokens)
+
+# Function: Preprocess English text
+def preprocess_english(content):
+    """Clean and preprocess English content using stemming and stopword removal."""
+    content = re.sub('[^a-zA-Z]', ' ', content)
+    content = content.lower()
+    content = content.split()
+    content = [port_stem.stem(word) for word in content if word not in stopwords.words('english')]
+    return ' '.join(content)
+
+# Function: Text summarization
+def summarize_text(text, language="en", sentences_count=2):
+    """Summarize the input text in the specified language."""
+    parser = PlaintextParser.from_string(text, Tokenizer(language))
+    summarizer = LsaSummarizer()
+    summary = summarizer(parser.document, sentences_count)
+    return ' '.join(str(sentence) for sentence in summary)
+
+# Function: Analyze sentiment
 def analyze_sentiment(text):
     """Analyze the sentiment of the input text."""
     blob = TextBlob(text)
     sentiment = blob.sentiment.polarity
-    if sentiment > 0:
-        return "Positive"
-    elif sentiment < 0:
-        return "Negative"
-    else:
-        return "Neutral"
+    return "Positive" if sentiment > 0 else "Negative" if sentiment < 0 else "Neutral"
 
-# Streamlit app configuration
+# Function: Translate text
+def translate_text(text, dest_language="en"):
+    """Translate text to the specified destination language (default: English)."""
+    translated = translator.translate(text, src='auto', dest=dest_language)
+    return translated.text
+
+# Streamlit UI setup
 st.set_page_config(page_title="Fake News Prediction", page_icon="📰", layout="wide")
 
 st.title("📰 Fake News Prediction")
 st.write("Enter a news headline or content to check if it's **Fake News** or **Real News**.")
 
-# Sidebar for additional information
+# Sidebar information
 st.sidebar.title("About the App")
 st.sidebar.info(
-    "This app predicts whether a piece of news is fake or real using a Logistic Regression model trained on a dataset of news articles. "
-    "It processes text using TfidfVectorizer and NLTK for stemming and stopword removal."
+    "This app predicts whether news is fake or real using a Logistic Regression model. "
+    "It supports multilingual processing, sentiment analysis, keyword extraction, and summarization."
 )
 st.sidebar.write("Developed by: Rawinan Suwisut")
 
-# Input field for user
+# Initialize session state for storing results
+if "processed_text" not in st.session_state:
+    st.session_state.processed_text = None
+    st.session_state.translated_text = None
+    st.session_state.summary_text = None
+    st.session_state.prediction = None
+    st.session_state.confidence = None
+    st.session_state.sentiment = None
+
+# User input
 user_input = st.text_area("Enter the news content:", "")
 
 if st.button("Submit"):
@@ -66,41 +108,57 @@ if st.button("Submit"):
         st.warning("⚠️ Please enter some text to predict.")
     else:
         with st.spinner("Processing..."):
-            # Preprocess and analyze input
-            processed_text = stemming(user_input)
-            transformed_text = vectorizer.transform([processed_text])
-            prediction = model.predict(transformed_text)
-            confidence = model.predict_proba(transformed_text)
+            try:
+                # Translate text to English for processing
+                translated_text = translate_text(user_input, dest_language="en")
 
-            # Extract keywords
-            keywords = extract_keywords(vectorizer, transformed_text)
+                # Preprocess text based on language
+                processed_text = preprocess_english(translated_text)
 
-            # Analyze sentiment
-            sentiment = analyze_sentiment(user_input)
+                # Transform text using vectorizer
+                transformed_text = vectorizer.transform([processed_text])
 
-            # Display prediction result
-            if prediction[0] == 1:
-                st.error(f"❌ This news is predicted to be **Fake News**.")
-            else:
-                st.success(f"✅ This news is predicted to be **Real News**.")
+                # Predict fake or real news
+                prediction = model.predict(transformed_text)
+                confidence = model.predict_proba(transformed_text)
 
-            # Display additional information
-            st.markdown("### 🔍 Analysis Details")
-            st.write(f"**Confidence Score:** {confidence.max() * 100:.2f}%")
-            st.write(f"**Top Keywords:** {', '.join(keywords)}")
-            st.write(f"**Sentiment Analysis:** {sentiment}")
+                # Perform sentiment analysis
+                sentiment = analyze_sentiment(translated_text)
 
+                # Summarize the text
+                summary_text = summarize_text(translated_text, language="english")
 
-# Footer section
-st.markdown("---")
-st.markdown("### 📚 How does it work?")
-st.write(
-    """
-    1. The app preprocesses the input text by removing non-alphabet characters, converting to lowercase, removing stopwords, and stemming.
-    2. It uses a TfidfVectorizer to convert the text into numerical features.
-    3. The Logistic Regression model predicts whether the text is **Fake News** or **Real News**.
-    4. Additional analysis includes extracting top keywords and sentiment analysis.
-    """
-)
-st.markdown("---")
-st.write("Feel free to test the app with your own examples!")
+                # Store results in session state
+                st.session_state.translated_text = translated_text
+                st.session_state.processed_text = processed_text
+                st.session_state.summary_text = summary_text
+                st.session_state.prediction = prediction
+                st.session_state.confidence = confidence
+                st.session_state.sentiment = sentiment
+
+                st.success("✅ Processing complete! Scroll down to see the results.")
+
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
+
+# Display results if processed
+if st.session_state.processed_text:
+    st.markdown("### 🔍 Analysis Details")
+
+    # Show prediction results
+    if st.session_state.prediction[0] == 1:
+        st.error(f"❌ This news is predicted to be **Fake News**.")
+    else:
+        st.success(f"✅ This news is predicted to be **Real News**.")
+
+    st.write(f"**Confidence Score:** {st.session_state.confidence.max() * 100:.2f}%")
+    st.write(f"**Sentiment Analysis:** {st.session_state.sentiment}")
+
+    # Choose summary language dynamically
+    summary_language = st.selectbox("Choose summary language:", ["English", "Thai"])
+    if summary_language == "Thai":
+        summary = translate_text(st.session_state.summary_text, dest_language="th")
+    else:
+        summary = st.session_state.summary_text
+
+    st.write(f"**News Summary ({summary_language}):** {summary}")
