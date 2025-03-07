@@ -49,7 +49,7 @@ vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
 vectorizer.fit(X)
 X = vectorizer.transform(X)
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, stratify=Y, random_state=2)
-model = RandomForestClassifier(n_estimators=100, random_state=2)
+model = RandomForestClassifier(n_estimators=50, max_depth=20, random_state=2)
 model.fit(X_train, Y_train)
 
 # accuracy score on the training data
@@ -63,8 +63,8 @@ test_data_accuracy = accuracy_score(X_test_prediction, Y_test)
 print('Accuracy score of the test data : ', test_data_accuracy)
 
 # Check Overfitting
-# cross_val_accuracy = cross_val_score(model, X, Y, cv=5)  # 5-fold cross-validation
-# print(f"Cross-validation accuracy: {cross_val_accuracy.mean()}")
+cross_val_accuracy = cross_val_score(model, X, Y, cv=5)
+print(f"Cross-validation accuracy: {cross_val_accuracy.mean()}")
 # cm = confusion_matrix(Y_test, model.predict(X_test))
 # print(cm)
 
