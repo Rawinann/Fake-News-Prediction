@@ -100,63 +100,46 @@ if "processed_text" not in st.session_state:
     st.session_state.confidence = None
     st.session_state.sentiment = None
 
-# User input
-user_input = st.text_area("Enter the news content:", "")
+# Input fields
+title = st.text_input("Enter News Title:")
+author = st.text_input("Enter Author (Optional):")
+text = st.text_area("Enter News Content:")
 
 if st.button("Submit"):
-    if user_input.strip() == "":
-        st.warning("⚠️ Please enter some text to predict.")
+    if not text:
+        st.warning("⚠️ Please enter both content.")
     else:
         with st.spinner("Processing..."):
             try:
-                # Translate text to English for processing
-                translated_text = translate_text(user_input, dest_language="en")
-
-                # Preprocess text based on language
+                full_text = f"{author} {title} {text}" if author else f"{title} {text}"
+                translated_text = translate_text(full_text, dest_language="en")
                 processed_text = preprocess_english(translated_text)
-
-                # Transform text using vectorizer
                 transformed_text = vectorizer.transform([processed_text])
-
-                # Predict fake or real news
                 prediction = model.predict(transformed_text)
                 confidence = model.predict_proba(transformed_text)
-
-                # Perform sentiment analysis
                 sentiment = analyze_sentiment(translated_text)
-
-                # Summarize the text
                 summary_text = summarize_text(translated_text, language="english")
 
-                # Store results in session state
-                st.session_state.translated_text = translated_text
-                st.session_state.processed_text = processed_text
-                st.session_state.summary_text = summary_text
-                st.session_state.prediction = prediction
-                st.session_state.confidence = confidence
-                st.session_state.sentiment = sentiment
+                if author and title:
+                    confidence[0][1] -= 0.2
+                elif author:
+                    confidence[0][1] -= 0.15
+                elif title:
+                    confidence[0][1] -= 0.1
+                confidence[0][1] = min(confidence[0][1], 1.0)
+
+                st.markdown("### 🔍 Analysis Details")
+                if prediction[0] == 1:
+                    st.error("❌ This news is predicted to be **Fake News**.")
+                else:
+                    st.success("✅ This news is predicted to be **Real News**.")
+
+                st.write(f"**Confidence Score:** {confidence.max() * 100:.2f}%")
+                st.write(f"**Sentiment Analysis:** {sentiment}")
+
+                summary_language = st.selectbox("Choose summary language:", ["English", "Thai"])
+                summary = translate_text(summary_text, dest_language="th") if summary_language == "Thai" else summary_text
+                st.write(f"**News Summary ({summary_language}):** {summary}")
 
             except Exception as e:
                 st.error(f"An error occurred: {e}")
-
-# Display results if processed
-if st.session_state.processed_text:
-    st.markdown("### 🔍 Analysis Details")
-
-    # Show prediction results
-    if st.session_state.prediction[0] == 1:
-        st.error(f"❌ This news is predicted to be **Fake News**.")
-    else:
-        st.success(f"✅ This news is predicted to be **Real News**.")
-
-    st.write(f"**Confidence Score:** {st.session_state.confidence.max() * 100:.2f}%")
-    st.write(f"**Sentiment Analysis:** {st.session_state.sentiment}")
-
-    # Choose summary language dynamically
-    summary_language = st.selectbox("Choose summary language:", ["English", "Thai"])
-    if summary_language == "Thai":
-        summary = translate_text(st.session_state.summary_text, dest_language="th")
-    else:
-        summary = st.session_state.summary_text
-
-    st.write(f"**News Summary ({summary_language}):** {summary}")
