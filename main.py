@@ -10,35 +10,40 @@ from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import nltk
 
+def stemming(content):
+    stemmed_content = re.sub('[^a-zA-Z]',' ',content)
+    stemmed_content = stemmed_content.lower()
+    stemmed_content = stemmed_content.split()
+    stemmed_content = [port_stem.stem(word) for word in stemmed_content if not word in stopwords.words('english')]
+    stemmed_content = ' '.join(stemmed_content)
+    return stemmed_content
+
 nltk.download('stopwords')
 # print(stopwords.words('english'))
 
 # Load dataset
 data = pd.read_csv('train.csv')  # Dataset ของคุณ
-data = data.dropna()  # ลบข้อมูลที่เป็นค่าว่าง
-print(data.shape)
-print(data.head)
 
-# # Split data into input (X) and output (y)
-# X = data['text']
-# y = data['label']  # 1 = Fake, 0 = Real
+data.isnull().sum()
+data = data.fillna('')  # ลบข้อมูลที่เป็นค่าว่าง
 
-# # Text preprocessing with TF-IDF
-# vectorizer = TfidfVectorizer(stop_words='english', max_df=0.7)
-# X = vectorizer.fit_transform(X)
+# merging the author name and news title
+data['content'] = data['author']+' '+data['title']
+print(data['content'])
 
-# # Split data into train and test sets
-# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Split data into input (X) and output (y)
+X = data.drop(columns='label', axis=1)
+Y = data['label']
 
-# # Train a logistic regression model
-# model = LogisticRegression()
-# model.fit(X_train, y_train)
+port_stem = PorterStemmer()
 
-# # Predict and evaluate
-# y_pred = model.predict(X_test)
-# accuracy = accuracy_score(y_test, y_pred)
-# print(f"Accuracy: {accuracy:.2f}")
+data['content'] = data['content'].apply(stemming)
+# print(data['content'])
 
-# joblib.dump(model, 'model.pkl')  # บันทึกโมเดลลงไฟล์
-# joblib.dump(vectorizer, 'vectorizer.pkl')  # บันทึก TF-IDF Vectorizer
-# print("Model saved successfully!")
+#separating the data and label
+X = data['content'].values
+Y = data['label'].values
+
+print(X)
+print(Y)
+Y.shape
