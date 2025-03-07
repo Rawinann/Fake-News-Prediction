@@ -1,6 +1,3 @@
-/submit.csv
 /test.csv
 /train.csv
 /predictions.csv
-/vectorizer.pkl
-/model.pkl
