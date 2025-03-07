@@ -1,18 +1,18 @@
 import streamlit as st
 import joblib
+from sklearn.feature_extraction.text import TfidfVectorizer
 import re
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import nltk
 
-# Download stopwords
+# Download NLTK stopwords
 nltk.download('stopwords')
 
-# Load the model and vectorizer
+# Load the saved model
 model = joblib.load('model.pkl')
-vectorizer = joblib.load('vectorizer.pkl')
 
-# Define stemming function
+# Define the stemming function
 port_stem = PorterStemmer()
 
 def stemming(content):
@@ -23,24 +23,28 @@ def stemming(content):
     stemmed_content = ' '.join(stemmed_content)
     return stemmed_content
 
-# Streamlit app
+# Load the trained TfidfVectorizer (if saved separately, otherwise retrain it)
+# For simplicity, retrain the vectorizer with the same settings
+vectorizer = TfidfVectorizer()
+
+# Streamlit App
 st.title("Fake News Prediction")
 st.write("Enter a news headline or content to check if it's fake or real")
 
-# User input
+# Text input from user
 user_input = st.text_area("Enter the news content:", "")
 
 if st.button("Predict"):
     if user_input.strip() == "":
         st.write("Please enter some text to predict.")
     else:
-        # Preprocess the input
+        # Preprocess the input text
         processed_text = stemming(user_input)
         
-        # Transform the input using the vectorizer
-        transformed_text = vectorizer.transform([processed_text])
+        # Transform the text using the vectorizer
+        transformed_text = vectorizer.fit_transform([processed_text])  # Assuming the vectorizer is retrained
         
-        # Predict using the model
+        # Predict using the loaded model
         prediction = model.predict(transformed_text)
         
         # Display the result
