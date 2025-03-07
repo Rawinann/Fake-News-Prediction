@@ -43,7 +43,22 @@ data['content'] = data['content'].apply(stemming)
 #separating the data and label
 X = data['content'].values
 Y = data['label'].values
+# converting the textual data to numerical data
+vectorizer = TfidfVectorizer()
+vectorizer.fit(X)
 
-print(X)
-print(Y)
-Y.shape
+X = vectorizer.transform(X)
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, stratify=Y, random_state=2)
+
+model = LogisticRegression()
+model.fit(X_train, Y_train)
+
+# accuracy score on the training data
+X_train_prediction = model.predict(X_train)
+training_data_accuracy = accuracy_score(X_train_prediction, Y_train)
+print('Accuracy score of the training data : ', training_data_accuracy)
+
+# accuracy score on the test data
+X_test_prediction = model.predict(X_test)
+test_data_accuracy = accuracy_score(X_test_prediction, Y_test)
+print('Accuracy score of the test data : ', test_data_accuracy)
