@@ -24,6 +24,7 @@ translator = Translator()
 # Initialize PorterStemmer for English
 port_stem = PorterStemmer()
 
+# Thai stopwords
 THAI_STOPWORDS = [
     "ที่", "และ", "คือ", "ไม่", "ใน", "ให้", "ได้", "โดย", "จะ", "มี", "ของ", "ได้", "จาก", "เป็น", "ว่า", "ซึ่ง",
     "ของ", "กับ", "อีก", "นี้", "นั้น", "อัน", "หนึ่ง", "สอง", "สาม", "เป็น", "เป็นต้น", "หรือ", "กับ", "ถึง"
@@ -70,9 +71,11 @@ def translate_text(text, dest_language="en"):
     if not text:  # ถ้าไม่มีข้อความ ไม่ต้องแปล
         return ""
     try:
+        # แปลภาษาไทยไปเป็นอังกฤษ
         translated = translator.translate(text, src='auto', dest=dest_language)
         return translated.text if translated and translated.text else text
-    except Exception:
+    except Exception as e:
+        st.error(f"Translation error: {e}")
         return text  # ถ้าเกิดข้อผิดพลาด ให้คืนค่าข้อความต้นฉบับ
 
 # Streamlit UI setup
