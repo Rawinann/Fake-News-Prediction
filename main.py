@@ -1,50 +1,63 @@
-import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 import joblib
 import re
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import nltk
 
-# Download stopwords
-nltk.download('stopwords')
-
-# Load the model and vectorizer
-model = joblib.load('model.pkl')
-vectorizer = joblib.load('vectorizer.pkl')
-
-# Define stemming function
-port_stem = PorterStemmer()
-
 def stemming(content):
-    stemmed_content = re.sub('[^a-zA-Z]', ' ', content)
+    stemmed_content = re.sub('[^a-zA-Z]',' ',content)
     stemmed_content = stemmed_content.lower()
     stemmed_content = stemmed_content.split()
     stemmed_content = [port_stem.stem(word) for word in stemmed_content if not word in stopwords.words('english')]
     stemmed_content = ' '.join(stemmed_content)
     return stemmed_content
+nltk.download('stopwords')
+# print(stopwords.words('english'))
 
-# Streamlit app
-st.title("Fake News Prediction")
-st.write("Enter a news headline or content to check if it's fake or real")
+# Load dataset
+data = pd.read_csv('train.csv')  # Dataset ของคุณ
+data.isnull().sum()
 
-# User input
-user_input = st.text_area("Enter the news content:", "")
+data = data.fillna('')  # ลบข้อมูลที่เป็นค่าว่าง
+# merging the author name and news title
+data['content'] = data['author']+' '+data['title']
+print(data['content'])
 
-if st.button("Predict"):
-    if user_input.strip() == "":
-        st.write("Please enter some text to predict.")
-    else:
-        # Preprocess the input
-        processed_text = stemming(user_input)
-        
-        # Transform the input using the vectorizer
-        transformed_text = vectorizer.transform([processed_text])
-        
-        # Predict using the model
-        prediction = model.predict(transformed_text)
-        
-        # Display the result
-        if prediction[0] == 1:
-            st.error("This news is predicted to be **Fake News**.")
-        else:
-            st.success("This news is predicted to be **Real News**.")
+# Split data into input (X) and output (y)
+X = data.drop(columns='label', axis=1)
+Y = data['label']
+port_stem = PorterStemmer()
+data['content'] = data['content'].apply(stemming)
+# print(data['content'])
+
+#separating the data and label
+X = data['content'].values
+Y = data['label'].values
+
+# converting the textual data to numerical data
+vectorizer = TfidfVectorizer()
+vectorizer.fit(X)
+X = vectorizer.transform(X)
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.2, stratify=Y, random_state=2)
+model = LogisticRegression()
+model.fit(X_train, Y_train)
+
+# accuracy score on the training data
+X_train_prediction = model.predict(X_train)
+training_data_accuracy = accuracy_score(X_train_prediction, Y_train)
+print('Accuracy score of the training data : ', training_data_accuracy)
+
+# accuracy score on the test data
+X_test_prediction = model.predict(X_test)
+test_data_accuracy = accuracy_score(X_test_prediction, Y_test)
+print('Accuracy score of the test data : ', test_data_accuracy)
+
+# Save the model as a pickle file
+joblib.dump(model, 'model.pkl')
+print("Model saved as model.pkl")
