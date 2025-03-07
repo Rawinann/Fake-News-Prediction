@@ -136,8 +136,6 @@ if st.button("Submit"):
                 st.session_state.confidence = confidence
                 st.session_state.sentiment = sentiment
 
-                st.success("✅ Processing complete! Scroll down to see the results.")
-
             except Exception as e:
                 st.error(f"An error occurred: {e}")
 
