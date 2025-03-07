@@ -62,3 +62,7 @@ print('Accuracy score of the training data : ', training_data_accuracy)
 X_test_prediction = model.predict(X_test)
 test_data_accuracy = accuracy_score(X_test_prediction, Y_test)
 print('Accuracy score of the test data : ', test_data_accuracy)
+
+# Save the model as a pickle file
+joblib.dump(model, 'model.pkl')
+print("Model saved as model.pkl")
