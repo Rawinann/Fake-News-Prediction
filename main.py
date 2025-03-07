@@ -27,7 +27,7 @@ data.isnull().sum()
 data = data.fillna('')  # ลบข้อมูลที่เป็นค่าว่าง
 # merging the author name and news title
 data['content'] = data['author']+' '+data['title']
-print(data['content'])
+# print(data['content'])
 
 # Split data into input (X) and output (y)
 X = data.drop(columns='label', axis=1)
@@ -61,3 +61,7 @@ print('Accuracy score of the test data : ', test_data_accuracy)
 # Save the model as a pickle file
 joblib.dump(model, 'model.pkl')
 print("Model saved as model.pkl")
+
+# Save the vectorizer as a pickle file
+joblib.dump(vectorizer, 'vectorizer.pkl')
+print("Model saved as vectorizer.pk")

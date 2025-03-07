@@ -1,3 +1,5 @@
 /test.csv
 /train.csv
 /predictions.csv
+/model.pkl
+/vectorizer.pkl
