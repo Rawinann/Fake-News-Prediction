@@ -3,3 +3,5 @@
 /predictions.csv
 /model.pkl
 /vectorizer.pkl
+/True.csv
+/Fake.csv
