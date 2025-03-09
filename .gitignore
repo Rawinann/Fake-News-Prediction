@@ -1,7 +1,8 @@
-/test.csv
-/train.csv
-/predictions.csv
 /model.pkl
 /vectorizer.pkl
 /True.csv
 /Fake.csv
+/model_gradient_boosting.pkl
+/model_logistic_regression.pkl
+/model_random_forest.pkl
+/model_xgboost.pkl
