@@ -1,7 +1,6 @@
 import streamlit as st
 import joblib
 import re
-import pandas as pd
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import nltk
@@ -31,18 +30,28 @@ translator = Translator()
 # Initialize PorterStemmer for English
 port_stem = PorterStemmer()
 
-# Function: Translate text safely
+# Function: Text summarization
+def summarize_text(text, language="en", sentences_count=2):
+    parser = PlaintextParser.from_string(text, Tokenizer(language))
+    summarizer = LsaSummarizer()
+    summary = summarizer(parser.document, sentences_count)
+    return ' '.join(str(sentence) for sentence in summary)
+
+# Function: Translate text
 def translate_text(text, dest_language="en"):
-    if not text:
-        return ""
     try:
         translated = translator.translate(text, src='auto', dest=dest_language)
-        return translated.text if translated and translated.text is not None else text
+        return translated.text
     except Exception as e:
-        st.error(f"Translation error: {e}")
-        return text  # Return original text if translation fails
+        return f"Translation Error: {e}"
 
-# Function: Predict with multiple models
+# Function: Analyze sentiment
+def analyze_sentiment(text):
+    blob = TextBlob(text)
+    sentiment = blob.sentiment.polarity
+    return "Positive" if sentiment > 0 else "Negative" if sentiment < 0 else "Neutral"
+
+# Function: Predict with multiple models in parallel
 def predict_multiple_models(transformed_text):
     results = {}
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -70,56 +79,53 @@ title = st.text_input("Enter News Title:")
 author = st.text_input("Enter Author (Optional):")
 text = st.text_area("Enter News Content:")
 
-# Store the language selection in session_state only once
-if 'summary_language' not in st.session_state:
+# Initialize session state for storing results
+if "summary_text" not in st.session_state:
+    st.session_state.summary_text = ""
     st.session_state.summary_language = "English"
+    st.session_state.translated_summary = ""
+    st.session_state.sentiment = ""
+    st.session_state.prediction_results = {}
 
-# Submit button
+# Submit button logic
 if st.button("Submit"):
     if not title or not text:
         st.warning("⚠️ Please enter both title and content.")
     else:
         with st.spinner("Processing..."):
             full_text = f"{author} {title} {text}" if author else f"{title} {text}"
+            summary_text = summarize_text(text, language="english")
+            st.session_state.summary_text = summary_text
+            st.session_state.translated_summary = translate_text(summary_text, dest_language="th")
             translated_text = translate_text(full_text, dest_language="en")
-
-            # If translation fails, fallback to original text
-            processed_text = translated_text if translated_text else full_text
+            processed_text = translated_text.lower()
             transformed_text = vectorizer.transform([processed_text])
 
             # Predict using multiple models
-            results = predict_multiple_models(transformed_text)
-            sentiment = analyze_sentiment(translated_text)
-            summary_text = summarize_text(translated_text, language="english")
+            st.session_state.prediction_results = predict_multiple_models(transformed_text)
+            st.session_state.sentiment = analyze_sentiment(translated_text)
+            
+            st.success("✅ Processing complete! Scroll down to see the results.")
 
-            # Display results
-            status = "❌ Fake News" if results["Logistic Regression"]["prediction"] == 1 else "✅ Real News"
-            st.markdown("### 🔍 Prediction Results")
-            st.write(f"**Prediction:** {status}")
-            st.write(f"**Sentiment Analysis:** {sentiment}")
+# Show Prediction Results
+st.markdown("### 🔍 Prediction Results")
+status = "❓ Waiting for input" if not st.session_state.prediction_results else ("❌ Fake News" if list(st.session_state.prediction_results.values())[0]["prediction"] == 1 else "✅ Real News")
+st.write(f"**Prediction:** {status}")
+st.write(f"**Sentiment Analysis:** {st.session_state.sentiment}")
 
-            # Language selection for summary
-            summary_language = st.selectbox("Choose summary language:", ["English", "Thai"], index=["English", "Thai"].index(st.session_state.summary_language))
-            st.session_state.summary_language = summary_language
+# Show News Summary
+st.markdown("### 🌐 News Summary")
+sum_lang = st.selectbox("Choose summary language:", ["English", "Thai"], index=0 if st.session_state.summary_language == "English" else 1)
 
-            # Translate summary only if necessary
-            summary = translate_text(summary_text, dest_language="th") if summary_language == "Thai" else summary_text
-            st.write(f"**News Summary ({summary_language}):** {summary}")
+if sum_lang != st.session_state.summary_language:
+    st.session_state.summary_language = sum_lang
 
-            # View Details
-            with st.expander("View Details"):
-                confidence_data = []
+summary = st.session_state.summary_text if st.session_state.summary_language == "English" else st.session_state.translated_summary
+st.write(f"**News Summary ({st.session_state.summary_language}):** {summary}")
 
-                for model_name, result in results.items():
-                    model_status = "❌ Fake News" if result["prediction"] == 1 else "✅ Real News"
-                    confidence_percentage = result["confidence"] * 100
-
-                    st.write(f"**{model_name}:** {model_status} (Confidence: {confidence_percentage:.2f}%)")
-
-                    # Store confidence data for chart
-                    confidence_data.append({"Model": model_name, "Confidence": confidence_percentage})
-
-                # Convert to DataFrame for plotting
-                if confidence_data:
-                    df_confidence = pd.DataFrame(confidence_data)
-                    st.line_chart(df_confidence.set_index("Model"))  # Use index to show model names correctly
+# View Details
+with st.expander("View Details"):
+    st.markdown("#### Model Predictions and Confidence")
+    for model_name, result in st.session_state.prediction_results.items():
+        model_status = "❌ Fake News" if result["prediction"] == 1 else "✅ Real News"
+        st.write(f"**{model_name}:** {model_status} (Confidence: {result['confidence'] * 100:.2f}%)")
