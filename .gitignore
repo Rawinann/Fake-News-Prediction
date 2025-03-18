@@ -2,7 +2,4 @@
 /vectorizer.pkl
 /True.csv
 /Fake.csv
-/model_gradient_boosting.pkl
-/model_logistic_regression.pkl
-/model_random_forest.pkl
-/model_xgboost.pkl
+/matric.py
